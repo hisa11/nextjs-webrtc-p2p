@@ -81,11 +81,11 @@ export default function Home() {
     const dc = peerConnection.current.createDataChannel("chat");
     dataChannelRef.current = dc;
     dc.onopen = () => console.log("DataChannel Open!");
-    
+
     // Aさん側でもメッセージを受信できるように設定
     dc.onmessage = (e) => {
       console.log("② メッセージが届いた（A側）！", e.data);
-      
+
       const newMessage: Message = {
         id: Date.now().toString() + Math.random().toString(36).slice(2),
         text: e.data,
