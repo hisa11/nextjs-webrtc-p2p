@@ -44,37 +44,37 @@ QRコードを生成・スキャンすることで、簡単に連絡先を追加
 
 Google認証によるセキュアなログインシステムを採用しています。
 
-![ログイン画面](https://github.com/user-attachments/assets/login-screen.png)
+![ログイン画面](https://github.com/user-attachments/assets/7c0fbdca-6652-4171-a387-b4e047915724)
 
 ### 連絡先リストとチャット画面
 
 左側に連絡先リスト、右側にチャット画面が表示されます。接続状態はリアルタイムで更新されます。
 
-![連絡先リストとチャット画面](https://github.com/user-attachments/assets/chat-main.png)
+![連絡先リストとチャット画面](https://github.com/user-attachments/assets/b983747c-f4ff-439b-8634-0335cd263661)
 
 ### QRコード連絡先交換
 
 QRコードを表示・スキャンして簡単に連絡先を追加できます。
 
-![QRコード画面](https://github.com/user-attachments/assets/qr-code.png)
+![QRコード画面](https://github.com/user-attachments/assets/6fcd5fc7-36c0-4ffe-831c-81cb0f2387d4)
 
 ### 連絡先リクエスト管理
 
 受信した連絡先リクエストを承認または拒否できます。
 
-![連絡先リクエスト](https://github.com/user-attachments/assets/requests.png)
+![連絡先リクエスト](https://github.com/user-attachments/assets/307390e8-383e-4082-830f-4dc16321fa4f)
 
 ### メッセージ詳細表示
 
 各メッセージに送信日時が表示され、送信ステータス（送信中・送信済み・オフライン保存）が確認できます。
 
-![メッセージ詳細](https://github.com/user-attachments/assets/message-detail.png)
+![メッセージ詳細]([https://github.com/user-attachments/assets/message-detail.png](https://github.com/user-attachments/assets/30d5ae27-7faf-4c39-b534-e4b9e9591c24))
 
 ### モバイル対応
 
 レスポンシブデザインにより、スマートフォンでも快適に利用できます。
 
-![モバイル画面](https://github.com/user-attachments/assets/mobile.png)
+![モバイル画面](https://github.com/user-attachments/assets/fca87ec2-4fd5-465b-bbe1-32b8307abf9b)
 
 ## 技術スタック
 
