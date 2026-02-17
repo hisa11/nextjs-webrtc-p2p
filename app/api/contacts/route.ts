@@ -15,15 +15,12 @@ type Contact = {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    const body = await request.json();
-    const { peerId, name, userId } = body;
-
-    // ユーザーIDはセッションまたはリクエストから取得
-    const currentUserId = session?.user?.id || userId;
-    
-    if (!currentUserId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const body = await request.json();
+    const { peerId, name } = body;
 
     if (!peerId) {
       return NextResponse.json(
@@ -39,8 +36,8 @@ export async function POST(request: NextRequest) {
       addedAt: Date.now(),
     };
 
-    const key = `contacts:${session.user.id}`;
-    await kv.lpush(key, JSON.stringify(contact));
+    const contactsKey = `contacts:${session.user.id}`;
+    await kv.sadd(contactsKey, JSON.stringify(contact));
 
     return NextResponse.json({ success: true, contact });
   } catch (error) {
@@ -56,15 +53,12 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const session = await auth();
-    const url = new URL(arguments[0] as any);
-    const userId = url.searchParams.get('userId') || session?.user?.id;
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const contactsKey = `contacts:${userId}`;
-    const items = await kv.lrange(key, 0, -1);
+    const contactsKey = `contacts:${session.user.id}`;
+    const items = await kv.smembers(contactsKey);
 
     const contacts: Contact[] = [];
     
@@ -96,13 +90,12 @@ export async function GET() {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get('id');
-    const userId = searchParams.get('userId') || session?.user?.id;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
-    }
 
     if (!contactId) {
       return NextResponse.json(
@@ -111,8 +104,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const contactsKey = `contacts:${userId}`;
-    const items = await kv.lrange(key, 0, -1);
+    const contactsKey = `contacts:${session.user.id}`;
+    const items = await kv.smembers(contactsKey);
 
     const newContacts: Contact[] = [];
     
@@ -135,10 +128,10 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // 既存のリストを削除して新しいリストを作成
-    await kv.del(key);
+    // contactsKeyを使用してSetから該当する連絡先を削除
+    await kv.del(contactsKey);
     for (const contact of newContacts) {
-      await kv.rpush(key, JSON.stringify(contact));
+      await kv.sadd(contactsKey, JSON.stringify(contact));
     }
 
     return NextResponse.json({ success: true });

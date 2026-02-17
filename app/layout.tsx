@@ -1,4 +1,6 @@
-import type { Metadata } from 'next';
+'use client';
+
+import { SessionProvider } from 'next-auth/react';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -12,11 +14,6 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'P2P Chat App',
-  description: 'WebRTC P2P Chat - 匿名で使える安全なチャット',
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,10 +21,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <title>P2P Chat App</title>
+        <meta name="description" content="WebRTC P2P Chat with Authentication" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );
