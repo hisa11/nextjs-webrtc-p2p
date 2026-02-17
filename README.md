@@ -1,212 +1,233 @@
-# NAT超えP2Pチャットアプリ
+# WebRTC P2P チャットアプリケーション
 
-Vercelを使ったWebRTC P2Pチャットアプリケーション。NAT超えに対応し、相手がオフラインの時もメッセージを保存できます。
+本番環境: https://nextjs-webrtc-p2p.vercel.app
 
-## 🌟 主な機能
+開発期間: 2026.01.15 ~ 2026.02.18 (約80時間)
 
-- **WebRTC P2P通信**: 直接ピア同士で通信（NAT超え対応）
-- **NextAuth.js認証**: GitHub/Google OAuth による安全なログイン
-- **QRコードID交換**: QRコードで簡単に連絡先を追加
-- **連絡先リクエスト**: 相手が承認すると連絡先に追加
-- **マルチチャット**: 複数の相手とチャット切り替え
-- **自動シグナリング**: Vercel KVを使った自動的な接続確立
-- **オフラインメッセージ**: 相手がオフライン時もメッセージを保存し、オンライン時に配信
-- **リアルタイム接続状態**: 接続状態をリアルタイムで表示
-- **Vercel無料プラン最適化**: 10秒以内の関数実行、効率的なKV使用
+## 概要
 
-## 🚀 セットアップ
+このアプリケーションは、WebRTC技術を活用したピアツーピア（P2P）チャットシステムです。サーバーを経由せず、ユーザー同士が直接メッセージをやり取りできるため、サーバー負荷を大幅に削減しながら、リアルタイムで低遅延な通信を実現しています。
 
-### 1. プロジェクトのクローン
+## 主な機能
+
+### 1. P2P通信によるリアルタイムメッセージング
+
+ユーザー間で直接データチャネルを確立し、サーバーを介さずにメッセージを送受信します。これにより、従来のクライアント・サーバー方式と比較して、サーバーの帯域幅とストレージの使用量を削減できます。
+
+### 2. NAT超え対応
+
+STUN（Session Traversal Utilities for NAT）サーバーを使用し、異なるネットワーク環境にいるユーザー同士でも通信を確立できます。Google提供の公開STUNサーバーを利用することで、ファイアウォールやルーターの背後にいるユーザーでも接続可能です。
+
+### 3. オフラインメッセージ保存
+
+相手がオフライン時、またはP2P接続が確立できない場合には、メッセージをサーバー（Vercel KV）に一時保存します。相手がオンラインになった際に自動的にメッセージが配信され、送信者には配信確認通知が送られます。
+
+### 4. Google認証によるセキュアなログイン
+
+NextAuth.jsを使用したGoogle OAuth認証により、安全にログインできます。ユーザーIDはプロバイダー情報から一意に生成されるため、ログアウト後も連絡先情報が保持されます。
+
+### 5. QRコードによる連絡先交換
+
+QRコードを生成・スキャンすることで、簡単に連絡先を追加できます。スマートフォンでも利用しやすいインターフェースを提供しています。
+
+### 6. 接続状態の可視化
+
+リアルタイムでP2P接続の状態（接続済み・接続中・未接続）を表示します。ハートビート機構により、接続の健全性を常に監視しています。
+
+### 7. メッセージ配信確認システム
+
+各メッセージに一意なIDを割り当て、相手が受信したことを確認できます。オフライン保存されたメッセージも、相手に届いた時点でステータスが「送信済み」に更新されます。
+
+## スクリーンショット
+
+### ログイン画面
+
+Google認証によるセキュアなログインシステムを採用しています。
+
+![ログイン画面](https://github.com/user-attachments/assets/login-screen.png)
+
+### 連絡先リストとチャット画面
+
+左側に連絡先リスト、右側にチャット画面が表示されます。接続状態はリアルタイムで更新されます。
+
+![連絡先リストとチャット画面](https://github.com/user-attachments/assets/chat-main.png)
+
+### QRコード連絡先交換
+
+QRコードを表示・スキャンして簡単に連絡先を追加できます。
+
+![QRコード画面](https://github.com/user-attachments/assets/qr-code.png)
+
+### 連絡先リクエスト管理
+
+受信した連絡先リクエストを承認または拒否できます。
+
+![連絡先リクエスト](https://github.com/user-attachments/assets/requests.png)
+
+### メッセージ詳細表示
+
+各メッセージに送信日時が表示され、送信ステータス（送信中・送信済み・オフライン保存）が確認できます。
+
+![メッセージ詳細](https://github.com/user-attachments/assets/message-detail.png)
+
+### モバイル対応
+
+レスポンシブデザインにより、スマートフォンでも快適に利用できます。
+
+![モバイル画面](https://github.com/user-attachments/assets/mobile.png)
+
+## 技術スタック
+
+- **フロントエンド**: Next.js 16.1.6（App Router）、React、TypeScript
+- **スタイリング**: Tailwind CSS
+- **認証**: NextAuth.js v5（Google OAuth）
+- **データベース**: Vercel KV（Redis互換）
+- **WebRTC**: RTCPeerConnection、RTCDataChannel
+- **シグナリング**: カスタム実装（Vercel KV使用）
+- **デプロイ**: Vercel
+- **ビルドツール**: Turbopack
+
+## アーキテクチャ
+
+### WebRTC接続フロー
+
+1. オファー/アンサー交換によるシグナリング
+2. ICE Candidate交換による接続経路の確立
+3. データチャネルの開通
+4. P2Pメッセージング開始
+
+### メッセージ送信フロー
+
+1. P2P接続確立済み → データチャネル経由で送信 → ACK待機
+2. ACK受信 → 送信完了
+3. ACKタイムアウト → サーバーに保存
+4. オフライン時 → 即座にサーバーに保存
+
+### オフラインメッセージ配信フロー
+
+1. 受信者がオンラインになる
+2. サーバーからメッセージを取得
+3. チャット履歴に追加
+4. P2P接続確立時に送信者へ配信確認通知
+5. 送信者側でステータス更新（オフライン保存 → 送信済み）
+
+## 当初の目標と達成状況
+
+### 達成した目標
+
+**サーバー負荷の削減**
+P2P通信により、メッセージの大部分がサーバーを経由せずに送受信されます。接続確立後のメッセージはすべてクライアント間で直接やり取りされるため、サーバーのCPU・メモリ・帯域幅の使用量を大幅に削減できています。
+
+**NAT超え対応**
+STUNサーバーを使用することで、異なるネットワーク環境下でもP2P接続を確立できます。実際の動作確認では、異なるWi-Fiネットワークや4G/5G回線間での接続に成功しています。
+
+**Google認証**
+NextAuth.jsによるGoogle OAuth認証を実装し、安全なログインシステムを構築しました。ユーザーIDの生成方式も改善し、ログアウト後も連絡先が保持されるようになっています。
+
+**オフラインメッセージ配信**
+相手がオフライン時のメッセージをサーバー（Vercel KV）に保存し、オンライン復帰時に自動配信する仕組みを実装しました。配信確認システムにより、送信者は相手がメッセージを受け取ったことを確認できます。
+
+### 変更・代替案を採用した部分
+
+**データベース: Supabase → Vercel KV**
+当初はSupabaseの使用を検討していましたが、以下の理由からVercel KVを採用しました：
+
+- Vercelとの統合が容易で、環境変数の設定が簡潔
+- Redisベースのため、一時的なデータ保存に適している
+- 無料枠での制限が明確で、開発中のコスト管理が容易
+
+この変更により、Supabaseの停止モード対策（GitHub Actionsによる定期Ping）は不要になりました。Vercel KVは常時稼働しているため、追加の監視機構を実装する必要がありません。
+
+**Push通知の実装状況**
+Service Workerの登録とプッシュ通知の基礎実装は完了していますが、実際の通知配信には以下の課題が残っています：
+
+- VAPIDキーの生成と設定が必要
+- プッシュ通知サービスへの登録処理の完成
+- 通知トリガーのタイミング調整
+
+現時点では、ブラウザ内通知（Notification API）による通知表示が動作しています。バックグラウンド通知は今後の改善項目として残されています。
+
+**シグナリングサーバーの実装**
+専用のWebSocketサーバーではなく、Next.js API Routesとポーリング方式を採用しました：
+
+- Vercelのサーバーレス環境との互換性が高い
+- 実装がシンプルで保守しやすい
+- 500msの高速ポーリングにより、実用上の遅延は感じられない
+
+この方式は、WebSocketに比べて若干の遅延が発生する可能性がありますが、接続確立後はP2Pで通信するため、実際のメッセージングには影響しません。
+
+**接続安定性の改善**
+開発中、P2P接続が不安定になる問題が発生しました。以下の対策を実装することで改善しました：
+
+- ハートビート機構（1秒間隔）による接続監視
+- 3秒間の無応答で自動切断
+- 切断検知後、5秒後に自動再接続
+- ACKタイムアウト（3秒）によるメッセージ配信保証
+
+これらの機構により、ネットワークの一時的な不安定さに対しても堅牢なシステムとなっています。
+
+## セキュリティとプライバシー
+
+- エンドツーエンド通信: P2P接続では、メッセージがサーバーを経由しないため、サーバー側でのログ記録リスクがありません
+- 一時的なデータ保存: オフラインメッセージは24時間で自動削除されます
+- 認証済みユーザーのみがアクセス可能: NextAuth.jsによる認証を必須としています
+- ユーザーID管理: プロバイダーアカウントIDから生成される決定的なIDにより、データの一貫性を保ちます
+
+## 今後の改善予定
+
+1. プッシュ通知の完全実装（VAPIDキー設定、バックグラウンド通知）
+2. ファイル送信機能の追加
+3. グループチャット対応
+4. 暗号化通信の実装（E2E暗号化）
+5. 既読機能の追加
+6. メッセージ検索機能
+
+## 開発時の工夫点
+
+### パフォーマンス最適化
+
+- 高速ポーリング（500ms）による低遅延シグナリング
+- localStorage活用によるチャット履歴の永続化
+- メッセージの重複チェックによる無駄な再レンダリング防止
+
+### ユーザビリティ
+
+- 接続状態の視覚的なフィードバック（色分けされたステータス表示）
+- タイムスタンプ表示による送信時刻の明確化
+- メッセージステータス表示（送信中・送信済み・オフライン保存）
+
+### 保守性
+
+- TypeScriptによる型安全性の確保
+- カスタムフックによるロジックの分離
+- 詳細なコンソールログによるデバッグ支援
+
+## ローカル環境での実行方法
 
 ```bash
-git clone <your-repo>
+# リポジトリのクローン
+git clone https://github.com/hisa11/nextjs-webrtc-p2p.git
 cd nextjs-webrtc-p2p
-```
 
-### 2. 依存関係のインストール
-
-```bash
+# 依存関係のインストール
 npm install
-```
 
-### 3. Vercel KVの設定
+# 環境変数の設定
+cp .env.example .env.local
+# .env.localに必要な値を設定
 
-Vercelダッシュボードで以下を実行:
-
-1. プロジェクトを作成
-2. Storage > Vercel KV > Create Database
-3. プロジェクトにKVデータベースをリンク
-
-ローカル開発用:
-
-```bash
-vercel link
-vercel env pull .env.local
-```
-
-### 4. 開発サーバーの起動
-
-```bash
+# 開発サーバーの起動
 npm run dev
 ```
 
-http://localhost:3000 を開きます
+必要な環境変数:
 
-## 📦 技術スタック
+- `NEXTAUTH_URL`: アプリケーションのURL
+- `NEXTAUTH_SECRET`: NextAuth.jsのシークレットキー
+- `GOOGLE_CLIENT_ID`: Google OAuthクライアントID
+- `GOOGLE_CLIENT_SECRET`: Google OAuthクライアントシークレット
+- `KV_URL`: Vercel KVのURL
+- `KV_REST_API_URL`: Vercel KV REST API URL
+- `KV_REST_API_TOKEN`: Vercel KV認証トークン
+- `KV_REST_API_READ_ONLY_TOKEN`: Vercel KV読み取り専用トークン
 
-- **Next.js 16**: React フレームワーク
-- **TypeScript**: 型安全性
-- **Tailwind CSS**: スタイリング
-- **NextAuth.js**: OAuth認証（GitHub/Google）
-- **WebRTC**: P2P通信
-- **QRコード**: qrcode.react（生成）、html5-qrcode（読み取り）
-- **Vercel KV**: シグナリング、メッセージ保存、連絡先管理
-- **Vercel**: ホスティング
-
-## 🔧 アーキテクチャ
-
-### 認証システム
-
-- `/api/auth/[...nextauth]`: NextAuth.js OAuth認証エンドポイント
-- GitHub/Google プロバイダー対応
-- ミドルウェアで `/chat` ルートを保護
-
-### シグナリングサーバー
-
-- `/api/signaling`: WebRTCのSDP/ICE candidateの交換
-- ポーリング方式（2秒間隔）でVercel無料プランに最適化
-
-### 連絡先管理
-
-- `/api/contacts`: 連絡先の追加・削除・一覧取得
-- `/api/contact-requests`: QRコード経由の連絡先リクエスト処理
-- リクエスト承認/拒否フロー
-
-### メッセージ管理
-
-- `/api/messages`: オフラインメッセージの保存・取得
-- 自動削除（24時間）でKV容量を節約
-
-### ピア管理
-
-- `/api/peers`: ピアのオンライン状態確認
-- ハートビート（30秒）で状態管理
-
-### 通知システム
-
-- `/api/notifications`: 未読通知の管理
-- 連絡先リクエスト通知（5秒間隔でポーリング）
-
-## 🎯 使い方
-
-### QRコードで連絡先追加（推奨）
-
-1. **チャット画面を開く**: GitHub/Googleでログイン
-2. **QRコードボタンをクリック**: 左サイドバーの「📷 QRコード」ボタン
-3. **QRコードを表示または読み取り**:
-   - **表示**: 自分のQRコードを相手に見せる
-   - **読み取り**: 相手のQRコードをカメラでスキャン
-4. **リクエスト承認**: 相手に通知が届き、承認すると連絡先に追加
-5. **チャット開始**: 連絡先リストから選択してチャット
-
-### 手動でID入力
-
-1. **手動追加ボタン**: 左サイドバーの「+ 手動追加」ボタン
-2. **相手のIDを入力**: ユーザーIDを入力して追加
-3. **チャット開始**: 連絡先リストから選択
-
-## ⚡ Vercel無料プランの制限対応
-
-### 実装済みの最適化
-
-1. **関数実行時間**:
-   - `maxDuration = 10`で10秒制限に対応
-   - ポーリング方式でWebSocketの代替
-
-2. **KV容量節約**:
-   - シグナルデータ: 5分で自動削除
-   - メッセージ: 24時間で自動削除
-   - 効率的なキー設計
-
-3. **帯域幅最適化**:
-   - P2P通信でサーバー負荷最小化
-   - 必要最小限のポーリング（2秒間隔）
-
-4. **同時実行制限**:
-   - 軽量なAPI設計
-   - KVを使った非同期処理
-
-## 🔒 セキュリティ
-
-- P2P接続で直接通信（サーバーを経由しない）
-- シグナリングデータの自動削除
-- 一時的なデータ保存のみ
-
-## 📝 今後の拡張
-
-- [ ] Web Push API通知
-- [ ] エンドツーエンド暗号化
-- [ ] ファイル送信機能
-- [ ] グループチャット
-- [ ] メッセージ履歴の永続化
-
-## 🐛 トラブルシューティング
-
-### 接続できない場合
-
-1. STUNサーバーの確認
-2. ブラウザのWebRTC対応確認
-3. Vercel KVの接続確認
-
-### メッセージが届かない場合
-
-1. オンライン状態の確認
-2. ブラウザコンソールでエラー確認
-3. Vercel関数ログの確認
-
-## 📄 ライセンス
-
-MIT
-
-## 🤝 貢献
-
-プルリクエストを歓迎します！
-
-## 📮 サポート
-
-問題が発生した場合は、Issueを作成してください。
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
