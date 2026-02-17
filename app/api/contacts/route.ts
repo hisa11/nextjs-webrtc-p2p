@@ -65,11 +65,22 @@ export async function GET() {
     if (items && items.length > 0) {
       for (const item of items) {
         try {
+          let contact: Contact;
           if (typeof item === 'string') {
-            contacts.push(JSON.parse(item));
+            contact = JSON.parse(item);
           } else {
-            contacts.push(item as Contact);
+            contact = item as Contact;
           }
+          
+          // nameがpeerIdと同じ場合、ユーザー情報から名前を取得
+          if (contact.name === contact.peerId) {
+            const userData = await kv.hgetall(`user:${contact.peerId}`);
+            if (userData?.name) {
+              contact.name = userData.name as string;
+            }
+          }
+          
+          contacts.push(contact);
         } catch (e) {
           console.error('Parse error:', e);
         }

@@ -192,7 +192,7 @@ export default function ChatPage() {
   };
 
   // 連絡先リクエストを承認
-  const handleApproveRequest = async (requestId: string) => {
+  const handleApproveRequest = async (requestId: string, fromUserId: string) => {
     try {
       const response = await fetch('/api/contact-requests', {
         method: 'PATCH',

@@ -155,9 +155,23 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'approve') {
-      // 両方のユーザーの連絡先リストに相手を追加
-      const contact1 = { id: request.from, addedAt: Date.now() };
-      const contact2 = { id: request.to, addedAt: Date.now() };
+      // ユーザー情報を取得
+      const fromUserData = await kv.hgetall(`user:${request.from}`);
+      const toUserData = await kv.hgetall(`user:${request.to}`);
+      
+      // 両方のユーザーの連絡先リストに相手を追加（名前付き）
+      const contact1 = {
+        id: request.from,
+        peerId: request.from,
+        name: (fromUserData?.name as string) || request.from,
+        addedAt: Date.now()
+      };
+      const contact2 = {
+        id: request.to,
+        peerId: request.to,
+        name: (toUserData?.name as string) || request.to,
+        addedAt: Date.now()
+      };
 
       await kv.sadd(`contacts:${request.to}`, JSON.stringify(contact1));
       await kv.sadd(`contacts:${request.from}`, JSON.stringify(contact2));

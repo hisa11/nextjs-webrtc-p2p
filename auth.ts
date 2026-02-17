@@ -16,15 +16,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account && user) {
+        // プロバイダー固有のIDを生成（一貫性のあるID）
+        const userId = `${account.provider}-${account.providerAccountId}`;
+        user.id = userId;
+
+        // ユーザー情報をKVに保存
+        await kv.hset(`user:${userId}`, {
+          id: userId,
+          name: user.name || '',
+          email: user.email || '',
+          image: user.image || '',
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+          lastLogin: Date.now(),
+        });
+      }
+      return true;
+    },
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
       }
       return session;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
+    async jwt({ token, user, account }) {
+      if (user && account) {
+        // プロバイダー固有の一貫したIDを使用
+        token.sub = `${account.provider}-${account.providerAccountId}`;
       }
       return token;
     },
