@@ -48,6 +48,7 @@ export default function ChatPage() {
   const [showAddContact, setShowAddContact] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
+  const [showChat, setShowChat] = useState(false); // モバイル用チャット表示フラグ
 
   const myId = session?.user?.id || '';
   const peerId = selectedContact?.peerId || '';
@@ -182,15 +183,11 @@ export default function ChatPage() {
         body: JSON.stringify({ targetUserId }),
       });
 
-      if (response.ok) {
-        alert('連絡先リクエストを送信しました');
-        setShowQRCode(false);
-      } else {
-        alert('リクエストの送信に失敗しました');
+      if (!response.ok) {
+        console.error('Failed to send contact request');
       }
     } catch (error) {
       console.error('Failed to send contact request:', error);
-      alert('エラーが発生しました');
     }
   };
 
@@ -232,6 +229,7 @@ export default function ChatPage() {
   // 連絡先を選択
   const selectContact = (contact: Contact) => {
     setSelectedContact(contact);
+    setShowChat(true); // モバイルでチャット画面を表示
   };
 
   // 選択された連絡先が変更されたら接続
@@ -342,7 +340,7 @@ export default function ChatPage() {
 
       <main className="flex h-screen bg-gray-100 text-gray-800 font-sans">
       {/* サイドバー：連絡先リスト */}
-      <div className="w-1/3 bg-white border-r flex flex-col">
+      <div className={`${showChat ? 'hidden' : 'flex'} md:flex w-full md:w-1/3 bg-white border-r flex-col`}>
         {/* ユーザー情報 */}
         <div className="p-4 border-b bg-blue-50">
           <div className="flex items-center justify-between">
@@ -451,15 +449,24 @@ export default function ChatPage() {
       </div>
 
       {/* チャット画面 */}
-      <div className="w-2/3 flex flex-col">
+      <div className={`${showChat ? 'flex' : 'hidden'} md:flex w-full md:w-2/3 flex-col`}>
         {selectedContact ? (
           <>
             {/* チャットヘッダー */}
             <div className="p-4 bg-white border-b flex justify-between items-center">
-              <div>
-                <div className="font-bold">{selectedContact.name}</div>
-                <div className="text-xs text-gray-600">
-                  {selectedContact.peerId}
+              <div className="flex items-center gap-3">
+                {/* モバイル用戻るボタン */}
+                <button
+                  onClick={() => setShowChat(false)}
+                  className="md:hidden text-blue-500 hover:text-blue-700"
+                >
+                  ← 戻る
+                </button>
+                <div>
+                  <div className="font-bold">{selectedContact.name}</div>
+                  <div className="text-xs text-gray-600">
+                    {selectedContact.peerId}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">

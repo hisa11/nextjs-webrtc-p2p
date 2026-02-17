@@ -49,7 +49,9 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
 
     // 連絡先リクエストを送信
     onContactRequest(scannedUserId);
-  }, [myUserId, onContactRequest, scanning]);
+    // モーダルを閉じる
+    onClose();
+  }, [myUserId, onContactRequest, scanning, onClose]);
 
   // スキャナーを起動
   const startScanner = useCallback(async () => {
