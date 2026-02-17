@@ -14,6 +14,8 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
   const [mode, setMode] = useState<'show' | 'scan'>('show');
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivId = 'qr-reader';
 
@@ -22,6 +24,9 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
 
   // QRコードを読み取った時の処理
   const handleQRCodeScanned = useCallback(async (data: string) => {
+    if (processing) return; // 処理中は無視
+    setProcessing(true);
+    
     if (scannerRef.current && scanning) {
       try {
         await scannerRef.current.stop();
@@ -36,6 +41,7 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
     const match = data.match(/^webrtc-chat:\/\/user\/(.+)$/);
     if (!match) {
       setError('無効なQRコードです。');
+      setProcessing(false);
       return;
     }
 
@@ -44,14 +50,22 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
     // 自分自身のQRコードをスキャンした場合
     if (scannedUserId === myUserId) {
       setError('自分自身のQRコードです。');
+      setProcessing(false);
       return;
     }
 
     // 連絡先リクエストを送信
-    onContactRequest(scannedUserId);
-    // モーダルを閉じる
-    onClose();
-  }, [myUserId, onContactRequest, scanning, onClose]);
+    try {
+      await onContactRequest(scannedUserId);
+      setSuccess('リクエストを送信しました！');
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setError('リクエストの送信に失敗しました。');
+      setProcessing(false);
+    }
+  }, [myUserId, onContactRequest, scanning, onClose, processing]);
 
   // スキャナーを起動
   const startScanner = useCallback(async () => {
@@ -157,6 +171,12 @@ export default function QRCodeExchange({ myUserId, onContactRequest, onClose }: 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+            {success}
           </div>
         )}
 

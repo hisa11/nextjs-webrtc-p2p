@@ -4,6 +4,33 @@ import { auth } from '@/auth';
 
 export const maxDuration = 10;
 
+// 全リクエストを削除
+export async function DELETE() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    const requestsKey = `contact-requests:${userId}`;
+    const requestIds = await kv.smembers(requestsKey) as string[];
+
+    // 全てのリクエストを削除
+    for (const requestId of requestIds) {
+      await kv.del(`contact-request:${requestId}`);
+    }
+    
+    // リストをクリア
+    await kv.del(requestsKey);
+
+    return NextResponse.json({ success: true, deleted: requestIds.length });
+  } catch (error) {
+    console.error('Error deleting all requests:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // 連絡先リクエストを送信
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +45,22 @@ export async function POST(req: NextRequest) {
     }
 
     const fromUserId = session.user.id;
+    
+    // 既存のリクエストをチェック（重複防止）
+    const requestsKey = `contact-requests:${targetUserId}`;
+    const existingRequestIds = await kv.smembers(requestsKey) as string[];
+    
+    // 既に同じユーザーからのpendingリクエストがあるかチェック
+    for (const existingId of existingRequestIds) {
+      const existingData = await kv.get(`contact-request:${existingId}`);
+      if (existingData) {
+        const existing = typeof existingData === 'string' ? JSON.parse(existingData) : existingData;
+        if (existing.from === fromUserId && existing.status === 'pending') {
+          return NextResponse.json({ success: true, requestId: existingId, duplicate: true });
+        }
+      }
+    }
+    
     const requestId = `${fromUserId}-${Date.now()}`;
     
     // リクエストを保存 (24時間保持)
@@ -34,7 +77,6 @@ export async function POST(req: NextRequest) {
     });
 
     // ターゲットユーザーの受信リクエストリストに追加
-    const requestsKey = `contact-requests:${targetUserId}`;
     await kv.sadd(requestsKey, requestId);
     await kv.expire(requestsKey, 86400);
 
