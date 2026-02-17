@@ -3,10 +3,10 @@ import { kv } from '@vercel/kv';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params;
+    const { userId } = await params;
 
     // ユーザー情報を取得
     const userData = await kv.hgetall(`user:${userId}`);
