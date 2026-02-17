@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google"
 import { kv } from "@vercel/kv"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
