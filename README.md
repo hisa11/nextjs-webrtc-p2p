@@ -34,6 +34,7 @@ Vercelダッシュボードで以下を実行:
 3. プロジェクトにKVデータベースをリンク
 
 ローカル開発用:
+
 ```bash
 vercel link
 vercel env pull .env.local
@@ -59,18 +60,22 @@ http://localhost:3000 を開きます
 ## 🔧 アーキテクチャ
 
 ### シグナリングサーバー
+
 - `/api/signaling`: WebRTCのSDP/ICE candidateの交換
 - ポーリング方式（2秒間隔）でVercel無料プランに最適化
 
 ### メッセージ管理
+
 - `/api/messages`: オフラインメッセージの保存・取得
 - 自動削除（24時間）でKV容量を節約
 
 ### ピア管理
+
 - `/api/peers`: ピアのオンライン状態確認
 - ハートビート（30秒）で状態管理
 
 ### 通知システム
+
 - `/api/notifications`: 未読通知の管理
 - シンプルな通知フラグ（Web Push API拡張可能）
 
@@ -86,7 +91,7 @@ http://localhost:3000 を開きます
 
 ### 実装済みの最適化
 
-1. **関数実行時間**: 
+1. **関数実行時間**:
    - `maxDuration = 10`で10秒制限に対応
    - ポーリング方式でWebSocketの代替
 
@@ -142,7 +147,6 @@ MIT
 ## 📮 サポート
 
 問題が発生した場合は、Issueを作成してください。
-
 
 ## Getting Started
 

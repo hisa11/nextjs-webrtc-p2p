@@ -5,32 +5,38 @@ Vercelを使ったNAT超えP2Pチャットアプリケーションが完成し�
 ## ✅ 実装された機能
 
 ### 1. **Vercelシグナリングサーバー** (/app/api/signaling/route.ts)
+
 - WebRTC SDP/ICE candidateの交換
 - Vercel KVを使った一時保存（5分で自動削除）
 - ポーリング方式（2秒間隔）でVercel無料プランに最適化
 - オンライン状態の自動トラッキング
 
 ### 2. **オフラインメッセージ保存** (/app/api/messages/route.ts)
+
 - 相手がオフライン時のメッセージ自動保存
 - オンライン復帰時の自動配信
 - 24時間で自動削除（KV容量節約）
 
 ### 3. **ピア管理** (/app/api/peers/route.ts)
+
 - オンライン状態の確認
 - 最終接続時刻の記録
 - ハートビート機能（30秒）
 
 ### 4. **通知システム** (/app/api/notifications/route.ts)
+
 - 未読メッセージの通知フラグ
 - Web Push API拡張可能な設計
 
 ### 5. **WebRTCカスタムフック** (/hooks/useWebRTC.ts)
+
 - P2P接続の自動確立
 - データチャンネル管理
 - 接続状態の監視
 - 自動再接続ロジック
 
 ### 6. **モダンなUI** (/app/page.tsx)
+
 - ユーザーIDベースの接続
 - リアルタイム接続状態表示
 - メッセージ送信状態インジケーター
@@ -117,24 +123,30 @@ npm run dev
 ## 🔧 カスタマイズ
 
 ### ポーリング間隔の変更
+
 [hooks/useWebRTC.ts](hooks/useWebRTC.ts):
+
 ```typescript
 pollingInterval.current = setInterval(pollSignals, 2000); // 2秒 → 任意の値
 ```
 
 ### データ削除時間の変更
+
 [app/api/signaling/route.ts](app/api/signaling/route.ts):
+
 ```typescript
 await kv.expire(key, 300); // 5分 → 任意の秒数
 ```
 
 ### STUNサーバーの追加
+
 [hooks/useWebRTC.ts](hooks/useWebRTC.ts):
+
 ```typescript
 const config: RTCConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:your-stun-server.com:3478' }, // 追加
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:your-stun-server.com:3478" }, // 追加
   ],
 };
 ```
@@ -159,16 +171,19 @@ const config: RTCConfiguration = {
 ## 🐛 トラブルシューティング
 
 ### 接続できない
+
 - STUNサーバーが利用可能か確認
 - Vercel KVが正しく設定されているか確認
 - ブラウザのWebRTC対応を確認
 
 ### メッセージが届かない
+
 - 接続状態を確認
 - ブラウザコンソールのエラーをチェック
 - Vercel関数ログを確認
 
 ### Vercel KVエラー
+
 ```bash
 # 環境変数を再取得
 vercel env pull .env.local --force

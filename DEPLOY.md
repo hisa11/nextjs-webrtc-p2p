@@ -1,6 +1,7 @@
 # Vercel デプロイ手順
 
 ## 前提条件
+
 - Vercelアカウント（無料プラン可）
 - GitHubリポジトリ
 
@@ -46,6 +47,7 @@ git push -u origin main
 4. "Connect"をクリック
 
 環境変数が自動的に設定されます:
+
 - `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
 - `KV_REST_API_READ_ONLY_TOKEN`
@@ -94,6 +96,7 @@ npm run dev
 ### KV接続エラー
 
 環境変数が正しく設定されているか確認:
+
 ```bash
 vercel env ls
 ```
@@ -101,6 +104,7 @@ vercel env ls
 ### デプロイエラー
 
 ビルドログを確認:
+
 1. Deploymentsタブ
 2. 失敗したデプロイをクリック
 3. "Build Logs"を確認
@@ -118,7 +122,7 @@ vercel env ls
 
 ### 制限を超えないために
 
-1. **効率的なポーリング**: 
+1. **効率的なポーリング**:
    - 2秒間隔（頻繁すぎない）
    - 接続確立後はポーリング停止を検討
 
@@ -142,10 +146,13 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         headers: [
-          { key: 'Access-Control-Allow-Origin', value: 'https://your-domain.com' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "https://your-domain.com",
+          },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
         ],
       },
     ];
@@ -156,6 +163,7 @@ const nextConfig = {
 ### 環境変数の確認
 
 本番環境の環境変数は決してコミットしないこと:
+
 - `.env.local`は`.gitignore`に含まれています
 - Vercel Dashboardで管理
 

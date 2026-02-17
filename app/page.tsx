@@ -85,7 +85,7 @@ export default function Home() {
 
     // メッセージ送信
     const sent = await sendMessage(inputText);
-    
+
     // 送信状態を更新
     setMessages((prev) =>
       prev.map((msg) =>
@@ -135,11 +135,10 @@ export default function Home() {
           <button
             onClick={handleConnect}
             disabled={!peerId || connectionState === 'connecting'}
-            className={`w-full mt-2 px-4 py-2 rounded text-sm font-bold ${
-              connectionState === 'connecting'
+            className={`w-full mt-2 px-4 py-2 rounded text-sm font-bold ${connectionState === 'connecting'
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                 : 'bg-green-500 text-white hover:bg-green-600'
-            }`}
+              }`}
           >
             {connectionState === 'connecting' ? '接続中...' : '接続開始'}
           </button>
@@ -150,28 +149,27 @@ export default function Home() {
           <h3 className="font-bold text-sm mb-2">接続状態</h3>
           <div className="flex items-center gap-2">
             <div
-              className={`w-3 h-3 rounded-full ${
-                connectionState === 'connected'
+              className={`w-3 h-3 rounded-full ${connectionState === 'connected'
                   ? 'bg-green-500'
                   : connectionState === 'connecting'
-                  ? 'bg-yellow-500 animate-pulse'
-                  : 'bg-red-500'
-              }`}
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-red-500'
+                }`}
             />
             <span className="text-sm">
               {connectionState === 'connected'
                 ? '接続済み'
                 : connectionState === 'connecting'
-                ? '接続中'
-                : '未接続'}
+                  ? '接続中'
+                  : '未接続'}
             </span>
           </div>
           <p className="text-xs text-gray-600 mt-2">
             {connectionState === 'connected'
               ? 'P2P接続が確立されています'
               : connectionState === 'connecting'
-              ? 'ピアと接続を確立中です...'
-              : 'オフラインメッセージは自動で保存されます'}
+                ? 'ピアと接続を確立中です...'
+                : 'オフラインメッセージは自動で保存されます'}
           </p>
         </div>
 
@@ -199,16 +197,14 @@ export default function Home() {
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${
-                msg.sender === 'me' ? 'justify-end' : 'justify-start'
-              } mb-2`}
+              className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'
+                } mb-2`}
             >
               <div
-                className={`p-3 rounded-lg max-w-xs ${
-                  msg.sender === 'me'
+                className={`p-3 rounded-lg max-w-xs ${msg.sender === 'me'
                     ? 'bg-blue-500 text-white'
                     : 'bg-white border'
-                }`}
+                  }`}
               >
                 <div>{msg.text}</div>
                 {msg.status && msg.sender === 'me' && (

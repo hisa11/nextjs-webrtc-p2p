@@ -1,11 +1,11 @@
-import { kv } from '@vercel/kv';
-import { NextRequest, NextResponse } from 'next/server';
+import { kv } from "@vercel/kv";
+import { NextRequest, NextResponse } from "next/server";
 
 // Vercel無料プランの制限に対応：10秒以内に処理を完了させる
 export const maxDuration = 10;
 
 type SignalData = {
-  type: 'offer' | 'answer' | 'ice-candidate';
+  type: "offer" | "answer" | "ice-candidate";
   data: unknown;
   from: string;
   to: string;
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
 
     if (!type || !from || !to) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+        { error: "Missing required fields" },
+        { status: 400 },
       );
     }
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // キー: signal:{to}:{from} で保存し、受信者が取得しやすくする
     const key = `signal:${to}:${from}`;
     await kv.lpush(key, JSON.stringify(signal));
-    
+
     // 5分で自動削除（Vercel無料プランのKV容量を節約）
     await kv.expire(key, 300);
 
@@ -46,10 +46,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Signaling error:', error);
+    console.error("Signaling error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -58,21 +58,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const userId = searchParams.get("userId");
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
     // この関数で取得できるすべてのシグナルを集める
     const pattern = `signal:${userId}:*`;
     const keys = await kv.keys(pattern);
-    
+
     const signals: SignalData[] = [];
-    
+
     for (const key of keys) {
       // リストから全て取得して削除
       const items = await kv.lrange(key, 0, -1);
@@ -81,7 +78,7 @@ export async function GET(request: NextRequest) {
           try {
             signals.push(JSON.parse(item as string));
           } catch (e) {
-            console.error('Parse error:', e);
+            console.error("Parse error:", e);
           }
         }
         // 取得したら削除
@@ -94,10 +91,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ signals });
   } catch (error) {
-    console.error('Get signals error:', error);
+    console.error("Get signals error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
