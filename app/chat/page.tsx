@@ -1,6 +1,5 @@
 'use client';
 
-import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import dynamic from 'next/dynamic';
@@ -38,7 +37,6 @@ type ContactRequest = {
 };
 
 export default function ChatPage() {
-  const { data: session, status } = useSession();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
@@ -48,8 +46,19 @@ export default function ChatPage() {
   const [showAddContact, setShowAddContact] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
+  const [myId, setMyId] = useState('');
 
-  const myId = session?.user?.id || '';
+  // 匿名ユーザーIDを生成または復元
+  useEffect(() => {
+    const stored = localStorage.getItem('anonymousUserId');
+    if (stored) {
+      setMyId(stored);
+    } else {
+      const newId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      localStorage.setItem('anonymousUserId', newId);
+      setMyId(newId);
+    }
+  }, []);
   const peerId = selectedContact?.peerId || '';
 
   // メッセージ受信ハンドラー
@@ -111,24 +120,24 @@ export default function ChatPage() {
   // 連絡先を読み込む
   useEffect(() => {
     const loadData = async () => {
-      if (status === 'authenticated') {
+      if (myId) {
         await fetchContacts();
         await fetchContactRequests();
       }
     };
     void loadData();
-  }, [status]);
+  }, [myId]);
 
   // 連絡先リクエストを定期的に取得
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (!myId) return;
 
     const interval = setInterval(() => {
       fetchContactRequests();
     }, 5000); // 5秒ごと
 
     return () => clearInterval(interval);
-  }, [status]);
+  }, [myId]);
 
   // 連絡先を追加
   const addContact = async () => {
@@ -274,41 +283,12 @@ export default function ChatPage() {
     }));
   };
 
-  // 未認証の場合はサインインページ
-  if (status === 'loading') {
+  // ローディング中
+  if (!myId) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="text-xl font-bold">読み込み中...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            P2P チャットアプリ
-          </h1>
-          <p className="text-gray-600 mb-6 text-center">
-            サインインして始めましょう
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => signIn('github')}
-              className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg hover:bg-gray-700 font-bold"
-            >
-              GitHub でサインイン
-            </button>
-            <button
-              onClick={() => signIn('google')}
-              className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 font-bold"
-            >
-              Google でサインイン
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -342,20 +322,14 @@ export default function ChatPage() {
         {/* ユーザー情報 */}
         <div className="p-4 border-b bg-blue-50">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="font-bold text-sm">{session?.user?.name}</div>
-              <div className="text-xs text-gray-600">{session?.user?.email}</div>
+            <div className="flex-1">
+              <div className="font-bold text-sm">匿名ユーザー</div>
+              <div className="text-xs text-gray-600">ブラウザにIDが保存されます</div>
             </div>
-            <button
-              onClick={() => signOut()}
-              className="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-            >
-              ログアウト
-            </button>
           </div>
           <div className="mt-2 text-xs text-gray-600">
-            <div className="font-mono bg-white p-2 rounded border">
-              ID: {myId.slice(0, 20)}...
+            <div className="font-mono bg-white p-2 rounded border text-xs break-all">
+              ID: {myId}
             </div>
           </div>
         </div>

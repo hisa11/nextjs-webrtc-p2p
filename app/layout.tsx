@@ -1,4 +1,3 @@
-import { SessionProvider } from 'next-auth/react';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -15,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'P2P Chat App',
-  description: 'WebRTC P2P Chat with Vercel Auth',
+  description: 'WebRTC P2P Chat - 匿名で使える安全なチャット',
 };
 
 export default function RootLayout({
@@ -28,7 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>{children}</SessionProvider>
+        {children}
       </body>
     </html>
   );
