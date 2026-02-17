@@ -68,7 +68,7 @@ QRコードを表示・スキャンして簡単に連絡先を追加できます
 
 各メッセージに送信日時が表示され、送信ステータス（送信中・送信済み・オフライン保存）が確認できます。
 
-![メッセージ詳細]([https://github.com/user-attachments/assets/message-detail.png](https://github.com/user-attachments/assets/30d5ae27-7faf-4c39-b534-e4b9e9591c24))
+![メッセージ詳細](https://github.com/user-attachments/assets/30d5ae27-7faf-4c39-b534-e4b9e9591c24)
 
 ### モバイル対応
 
