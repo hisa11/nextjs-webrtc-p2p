@@ -55,7 +55,26 @@ export function useWebRTC(
     async (offer: RTCSessionDescriptionInit) => {
       if (!peerConnection.current) return;
 
+      const signalingState = peerConnection.current.signalingState;
+      console.log('Received offer, current state:', signalingState);
+
       try {
+        // stable状態またはhave-local-offer状態（グレア）の場合のみ処理
+        if (signalingState !== 'stable' && signalingState !== 'have-local-offer') {
+          console.warn('Cannot handle offer in state:', signalingState);
+          return;
+        }
+
+        // グレア状態の解決: 低いIDが優先
+        if (signalingState === 'have-local-offer') {
+          const shouldRestart = myId < peerId;
+          if (!shouldRestart) {
+            console.log('Ignoring offer due to glare, we have priority');
+            return;
+          }
+          console.log('Restarting due to glare');
+        }
+
         await peerConnection.current.setRemoteDescription(
           new RTCSessionDescription(offer),
         );
@@ -66,13 +85,22 @@ export function useWebRTC(
         console.error("Handle offer error:", error);
       }
     },
-    [sendSignal],
+    [sendSignal, myId, peerId],
   );
 
   // Answerを受信
   const handleAnswer = useCallback(
     async (answer: RTCSessionDescriptionInit) => {
       if (!peerConnection.current) return;
+
+      const signalingState = peerConnection.current.signalingState;
+      console.log('Received answer, current state:', signalingState);
+
+      // have-local-offer状態のみでanswerを処理
+      if (signalingState !== 'have-local-offer') {
+        console.warn('Cannot handle answer in state:', signalingState);
+        return;
+      }
 
       try {
         await peerConnection.current.setRemoteDescription(
@@ -90,6 +118,12 @@ export function useWebRTC(
     async (candidate: RTCIceCandidateInit) => {
       if (!peerConnection.current) return;
 
+      // リモートdescriptionが設定されるまで待つ
+      if (!peerConnection.current.remoteDescription) {
+        console.log("Waiting for remote description before adding ICE candidate");
+        return;
+      }
+
       try {
         await peerConnection.current.addIceCandidate(
           new RTCIceCandidate(candidate),
@@ -105,7 +139,14 @@ export function useWebRTC(
   const pollSignals = useCallback(async () => {
     try {
       const response = await fetch(`/api/signaling?userId=${myId}`);
-      const { signals } = await response.json();
+      
+      if (!response.ok) {
+        console.error('Signaling API error:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      const signals = data.signals || [];
 
       for (const signal of signals) {
         if (signal.from !== peerId) continue;
@@ -127,7 +168,14 @@ export function useWebRTC(
   const fetchOfflineMessages = useCallback(async () => {
     try {
       const response = await fetch(`/api/messages?userId=${myId}`);
-      const { messages } = await response.json();
+      
+      if (!response.ok) {
+        console.error('Messages API error:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      const messages = data.messages || [];
 
       for (const msg of messages) {
         if (msg.from === peerId) {

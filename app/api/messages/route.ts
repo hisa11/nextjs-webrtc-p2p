@@ -77,7 +77,12 @@ export async function GET(request: NextRequest) {
     if (items && items.length > 0) {
       for (const item of items) {
         try {
-          messages.push(JSON.parse(item as string));
+          // Vercel KVは自動的にJSONをパース/シリアライズする
+          if (typeof item === 'string') {
+            messages.push(JSON.parse(item));
+          } else {
+            messages.push(item as OfflineMessage);
+          }
         } catch (e) {
           console.error("Parse error:", e);
         }
