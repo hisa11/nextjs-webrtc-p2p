@@ -588,6 +588,12 @@ export default function ChatPage() {
                     </p>
                     <div className="space-y-3">
                         <button
+                            onClick={() => signIn('github')}
+                            className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg hover:bg-gray-700 font-bold"
+                        >
+                            GitHub でログイン
+                        </button>
+                        <button
                             onClick={() => signIn('google')}
                             className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 font-bold"
                         >
