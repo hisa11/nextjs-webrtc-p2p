@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { supabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 10;
@@ -9,8 +9,7 @@ type NotificationRequest = {
   from: string;
 };
 
-// 通知を送信（実際にはフラグを立てるだけ）
-// Web Push APIは別途実装が必要ですが、ここではシンプルな通知フラグを保存
+// 通知を送信
 export async function POST(request: NextRequest) {
   try {
     const body: NotificationRequest = await request.json();
@@ -23,16 +22,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 通知フラグを保存（相手がオンラインになったときに取得）
-    const notification = {
-      from,
-      message: message.slice(0, 50), // 最初の50文字のみ
+    await supabaseAdmin.from("notifications").insert({
+      to_user_id: to,
+      from_user: from,
+      message: message.slice(0, 50),
       timestamp: Date.now(),
-    };
-
-    const key = `notifications:${to}`;
-    await kv.lpush(key, JSON.stringify(notification));
-    await kv.expire(key, 86400); // 24時間で削除
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -54,21 +49,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    const key = `notifications:${userId}`;
-    const items = await kv.lrange(key, 0, -1);
+    const { data: items } = await supabaseAdmin
+      .from("notifications")
+      .select("from_user, message, timestamp")
+      .eq("to_user_id", userId)
+      .order("created_at", { ascending: false });
 
-    const notifications = [];
+    const notifications = (items || []).map((item) => ({
+      from: item.from_user,
+      message: item.message,
+      timestamp: item.timestamp,
+    }));
 
-    if (items && items.length > 0) {
-      for (const item of items) {
-        try {
-          notifications.push(JSON.parse(item as string));
-        } catch (e) {
-          console.error("Parse error:", e);
-        }
-      }
-      // 取得したら削除
-      await kv.del(key);
+    // 取得したら削除
+    if (notifications.length > 0) {
+      await supabaseAdmin
+        .from("notifications")
+        .delete()
+        .eq("to_user_id", userId);
     }
 
     return NextResponse.json({ notifications });

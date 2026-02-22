@@ -1,6 +1,6 @@
-import { kv } from '@vercel/kv';
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { supabaseAdmin } from "@/lib/supabase";
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 export const maxDuration = 10;
 
@@ -16,17 +16,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const { peerId, name } = body;
 
     if (!peerId) {
-      return NextResponse.json(
-        { error: 'Missing peerId' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing peerId" }, { status: 400 });
     }
 
     const contact: Contact = {
@@ -36,15 +33,20 @@ export async function POST(request: NextRequest) {
       addedAt: Date.now(),
     };
 
-    const contactsKey = `contacts:${session.user.id}`;
-    await kv.sadd(contactsKey, JSON.stringify(contact));
+    await supabaseAdmin.from("contacts").insert({
+      id: contact.id,
+      user_id: session.user.id,
+      peer_id: contact.peerId,
+      name: contact.name,
+      added_at: contact.addedAt,
+    });
 
     return NextResponse.json({ success: true, contact });
   } catch (error) {
-    console.error('Add contact error:', error);
+    console.error("Add contact error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -54,45 +56,43 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const contactsKey = `contacts:${session.user.id}`;
-    const items = await kv.smembers(contactsKey);
+    const { data: rows } = await supabaseAdmin
+      .from("contacts")
+      .select("id, peer_id, name, added_at")
+      .eq("user_id", session.user.id);
 
-    const contacts: Contact[] = [];
-    
-    if (items && items.length > 0) {
-      for (const item of items) {
-        try {
-          let contact: Contact;
-          if (typeof item === 'string') {
-            contact = JSON.parse(item);
-          } else {
-            contact = item as Contact;
+    const contacts: Contact[] = await Promise.all(
+      (rows || []).map(async (row) => {
+        let name = row.name;
+        // nameがpeerIdと同じ場合、ユーザー情報から名前を取得
+        if (name === row.peer_id) {
+          const { data: userData } = await supabaseAdmin
+            .from("users")
+            .select("name")
+            .eq("id", row.peer_id)
+            .single();
+          if (userData?.name) {
+            name = userData.name;
           }
-          
-          // nameがpeerIdと同じ場合、ユーザー情報から名前を取得
-          if (contact.name === contact.peerId) {
-            const userData = await kv.hgetall(`user:${contact.peerId}`);
-            if (userData?.name) {
-              contact.name = userData.name as string;
-            }
-          }
-          
-          contacts.push(contact);
-        } catch (e) {
-          console.error('Parse error:', e);
         }
-      }
-    }
+        return {
+          id: row.id,
+          peerId: row.peer_id,
+          name,
+          addedAt: row.added_at,
+        };
+      }),
+    );
 
     return NextResponse.json({ contacts });
   } catch (error) {
-    console.error('Get contacts error:', error);
+    console.error("Get contacts error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -102,55 +102,31 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const contactId = searchParams.get('id');
+    const contactId = searchParams.get("id");
 
     if (!contactId) {
       return NextResponse.json(
-        { error: 'Missing contact id' },
-        { status: 400 }
+        { error: "Missing contact id" },
+        { status: 400 },
       );
     }
 
-    const contactsKey = `contacts:${session.user.id}`;
-    const items = await kv.smembers(contactsKey);
-
-    const newContacts: Contact[] = [];
-    
-    if (items && items.length > 0) {
-      for (const item of items) {
-        try {
-          let contact: Contact;
-          if (typeof item === 'string') {
-            contact = JSON.parse(item);
-          } else {
-            contact = item as Contact;
-          }
-          
-          if (contact.id !== contactId) {
-            newContacts.push(contact);
-          }
-        } catch (e) {
-          console.error('Parse error:', e);
-        }
-      }
-    }
-
-    // contactsKeyを使用してSetから該当する連絡先を削除
-    await kv.del(contactsKey);
-    for (const contact of newContacts) {
-      await kv.sadd(contactsKey, JSON.stringify(contact));
-    }
+    await supabaseAdmin
+      .from("contacts")
+      .delete()
+      .eq("id", contactId)
+      .eq("user_id", session.user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete contact error:', error);
+    console.error("Delete contact error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

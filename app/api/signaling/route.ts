@@ -1,7 +1,6 @@
-import { kv } from "@vercel/kv";
+import { supabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
-// Vercel無料プランの制限に対応：10秒以内に処理を完了させる
 export const maxDuration = 10;
 
 type SignalData = {
@@ -33,16 +32,28 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
     };
 
-    // Vercel KVに保存（相手が取得するまで保持）
-    // キー: signal:{to}:{from} で保存し、受信者が取得しやすくする
-    const key = `signal:${to}:${from}`;
-    await kv.lpush(key, JSON.stringify(signal));
-
-    // 5分で自動削除（Vercel無料プランのKV容量を節約）
-    await kv.expire(key, 300);
+    // Supabase にシグナルを保存
+    await supabaseAdmin.from("signals").insert({
+      type: signal.type,
+      data: signal.data,
+      from_user_id: signal.from,
+      to_user_id: signal.to,
+      timestamp: signal.timestamp,
+    });
 
     // オンライン状態を更新
-    await kv.set(`online:${from}`, Date.now(), { ex: 30 }); // 30秒で期限切れ
+    await supabaseAdmin.from("online_status").upsert({
+      user_id: from,
+      last_seen: Date.now(),
+      updated_at: new Date().toISOString(),
+    });
+
+    // 5分以上前のシグナルを削除（容量節約）
+    const fiveMinutesAgo = new Date(Date.now() - 300000).toISOString();
+    await supabaseAdmin
+      .from("signals")
+      .delete()
+      .lt("created_at", fiveMinutesAgo);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -64,35 +75,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    // この関数で取得できるすべてのシグナルを集める
-    const pattern = `signal:${userId}:*`;
-    const keys = await kv.keys(pattern);
+    // 自分宛てのシグナルを取得
+    const { data: rows } = await supabaseAdmin
+      .from("signals")
+      .select("*")
+      .eq("to_user_id", userId)
+      .order("timestamp", { ascending: true });
 
-    const signals: SignalData[] = [];
+    const signals: SignalData[] = (rows || []).map((row) => ({
+      type: row.type as SignalData["type"],
+      data: row.data,
+      from: row.from_user_id,
+      to: row.to_user_id,
+      timestamp: row.timestamp,
+    }));
 
-    for (const key of keys) {
-      // リストから全て取得して削除
-      const items = await kv.lrange(key, 0, -1);
-      if (items && items.length > 0) {
-        for (const item of items) {
-          try {
-            // Vercel KVは自動的にJSONをパース/シリアライズする
-            if (typeof item === 'string') {
-              signals.push(JSON.parse(item));
-            } else {
-              signals.push(item as SignalData);
-            }
-          } catch (e) {
-            console.error("Parse error:", e);
-          }
-        }
-        // 取得したら削除
-        await kv.del(key);
-      }
+    // 取得したら削除
+    if (signals.length > 0) {
+      await supabaseAdmin.from("signals").delete().eq("to_user_id", userId);
     }
 
     // オンライン状態を更新
-    await kv.set(`online:${userId}`, Date.now(), { ex: 30 });
+    await supabaseAdmin.from("online_status").upsert({
+      user_id: userId,
+      last_seen: Date.now(),
+      updated_at: new Date().toISOString(),
+    });
 
     return NextResponse.json({ signals });
   } catch (error) {

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
-import { auth } from '@/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { auth } from "@/auth";
 
 export const maxDuration = 10;
 
@@ -9,25 +9,24 @@ export async function DELETE() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
-    const requestsKey = `contact-requests:${userId}`;
-    const requestIds = await kv.smembers(requestsKey) as string[];
 
-    // 全てのリクエストを削除
-    for (const requestId of requestIds) {
-      await kv.del(`contact-request:${requestId}`);
-    }
-    
-    // リストをクリア
-    await kv.del(requestsKey);
+    const { data: deleted } = await supabaseAdmin
+      .from("contact_requests")
+      .delete()
+      .eq("to_user_id", userId)
+      .select("id");
 
-    return NextResponse.json({ success: true, deleted: requestIds.length });
+    return NextResponse.json({ success: true, deleted: deleted?.length ?? 0 });
   } catch (error) {
-    console.error('Error deleting all requests:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error deleting all requests:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -36,54 +35,55 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { targetUserId } = await req.json();
     if (!targetUserId) {
-      return NextResponse.json({ error: 'Target user ID required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Target user ID required" },
+        { status: 400 },
+      );
     }
 
     const fromUserId = session.user.id;
-    
-    // 既存のリクエストをチェック（重複防止）
-    const requestsKey = `contact-requests:${targetUserId}`;
-    const existingRequestIds = await kv.smembers(requestsKey) as string[];
-    
-    // 既に同じユーザーからのpendingリクエストがあるかチェック
-    for (const existingId of existingRequestIds) {
-      const existingData = await kv.get(`contact-request:${existingId}`);
-      if (existingData) {
-        const existing = typeof existingData === 'string' ? JSON.parse(existingData) : existingData;
-        if (existing.from === fromUserId && existing.status === 'pending') {
-          return NextResponse.json({ success: true, requestId: existingId, duplicate: true });
-        }
-      }
+
+    // 既に同じユーザーからの pending リクエストがあるかチェック
+    const { data: existing } = await supabaseAdmin
+      .from("contact_requests")
+      .select("id")
+      .eq("from_user_id", fromUserId)
+      .eq("to_user_id", targetUserId)
+      .eq("status", "pending")
+      .single();
+
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        requestId: existing.id,
+        duplicate: true,
+      });
     }
-    
+
     const requestId = `${fromUserId}-${Date.now()}`;
-    
-    // リクエストを保存 (24時間保持)
-    const request = {
+    const expiresAt = new Date(Date.now() + 86400000).toISOString();
+
+    await supabaseAdmin.from("contact_requests").insert({
       id: requestId,
-      from: fromUserId,
-      to: targetUserId,
-      status: 'pending',
+      from_user_id: fromUserId,
+      to_user_id: targetUserId,
+      status: "pending",
       timestamp: Date.now(),
-    };
-
-    await kv.set(`contact-request:${requestId}`, JSON.stringify(request), {
-      ex: 86400, // 24時間
+      expires_at: expiresAt,
     });
-
-    // ターゲットユーザーの受信リクエストリストに追加
-    await kv.sadd(requestsKey, requestId);
-    await kv.expire(requestsKey, 86400);
 
     return NextResponse.json({ success: true, requestId });
   } catch (error) {
-    console.error('Error sending contact request:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error sending contact request:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -92,38 +92,33 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
-    const requestsKey = `contact-requests:${userId}`;
-    
-    // リクエストIDリストを取得
-    const requestIds = await kv.smembers(requestsKey);
-    
-    if (!requestIds || requestIds.length === 0) {
-      return NextResponse.json({ requests: [] });
-    }
 
-    // 各リクエストの詳細を取得
-    const requests = [];
-    for (const requestId of requestIds) {
-      const data = await kv.get(`contact-request:${requestId}`);
-      if (data) {
-        const request = typeof data === 'string' ? JSON.parse(data) : data;
-        if (request.status === 'pending') {
-          requests.push(request);
-        } else {
-          // 承認済み/拒否済みリクエストは削除
-          await kv.srem(requestsKey, requestId);
-        }
-      }
-    }
+    const { data: rows } = await supabaseAdmin
+      .from("contact_requests")
+      .select("*")
+      .eq("to_user_id", userId)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString());
+
+    const requests = (rows || []).map((row) => ({
+      id: row.id,
+      from: row.from_user_id,
+      to: row.to_user_id,
+      status: row.status,
+      timestamp: row.timestamp,
+    }));
 
     return NextResponse.json({ requests });
   } catch (error) {
-    console.error('Error fetching contact requests:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error fetching contact requests:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -132,68 +127,87 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { requestId, action } = await req.json();
-    if (!requestId || !action || !['approve', 'reject'].includes(action)) {
-      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    if (!requestId || !action || !["approve", "reject"].includes(action)) {
+      return NextResponse.json(
+        { error: "Invalid parameters" },
+        { status: 400 },
+      );
     }
 
     const userId = session.user.id;
-    const data = await kv.get(`contact-request:${requestId}`);
-    
-    if (!data) {
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-    }
 
-    const request = typeof data === 'string' ? JSON.parse(data) : data;
+    const { data: requestData } = await supabaseAdmin
+      .from("contact_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (!requestData) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
 
     // リクエストが自分宛か確認
-    if (request.to !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (requestData.to_user_id !== userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    if (action === 'approve') {
+    if (action === "approve") {
       // ユーザー情報を取得
-      const fromUserData = await kv.hgetall(`user:${request.from}`);
-      const toUserData = await kv.hgetall(`user:${request.to}`);
-      
-      // 両方のユーザーの連絡先リストに相手を追加（名前付き）
-      const contact1 = {
-        id: request.from,
-        peerId: request.from,
-        name: (fromUserData?.name as string) || request.from,
-        addedAt: Date.now()
-      };
-      const contact2 = {
-        id: request.to,
-        peerId: request.to,
-        name: (toUserData?.name as string) || request.to,
-        addedAt: Date.now()
-      };
+      const [{ data: fromUser }, { data: toUser }] = await Promise.all([
+        supabaseAdmin
+          .from("users")
+          .select("name")
+          .eq("id", requestData.from_user_id)
+          .single(),
+        supabaseAdmin
+          .from("users")
+          .select("name")
+          .eq("id", requestData.to_user_id)
+          .single(),
+      ]);
 
-      await kv.sadd(`contacts:${request.to}`, JSON.stringify(contact1));
-      await kv.sadd(`contacts:${request.from}`, JSON.stringify(contact2));
+      const now = Date.now();
+
+      // 両方のユーザーの連絡先リストに相手を追加
+      await supabaseAdmin.from("contacts").upsert([
+        {
+          id: `${requestData.to_user_id}-${requestData.from_user_id}`,
+          user_id: requestData.to_user_id,
+          peer_id: requestData.from_user_id,
+          name: fromUser?.name || requestData.from_user_id,
+          added_at: now,
+        },
+        {
+          id: `${requestData.from_user_id}-${requestData.to_user_id}`,
+          user_id: requestData.from_user_id,
+          peer_id: requestData.to_user_id,
+          name: toUser?.name || requestData.to_user_id,
+          added_at: now,
+        },
+      ]);
 
       // 相手に承認通知を送信
-      const notification = {
-        type: 'contact_approved',
-        from: userId,
-        timestamp: Date.now(),
-      };
-      await kv.set(`notification:${request.from}`, JSON.stringify(notification), {
-        ex: 300, // 5分
+      await supabaseAdmin.from("notifications").insert({
+        to_user_id: requestData.from_user_id,
+        from_user: userId,
+        message: "Contact request approved",
+        timestamp: now,
       });
     }
 
     // リクエストを削除
-    await kv.del(`contact-request:${requestId}`);
-    await kv.srem(`contact-requests:${userId}`, requestId);
+    await supabaseAdmin.from("contact_requests").delete().eq("id", requestId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error processing contact request:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error processing contact request:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

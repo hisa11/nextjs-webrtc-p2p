@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { supabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 10;
@@ -13,16 +13,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing peerId" }, { status: 400 });
     }
 
-    const onlineStatus = await kv.get(`online:${peerId}`);
-    const isOnline =
-      onlineStatus && Date.now() - (onlineStatus as number) < 30000;
+    const { data } = await supabaseAdmin
+      .from("online_status")
+      .select("last_seen")
+      .eq("user_id", peerId)
+      .single();
+
+    const isOnline = data && Date.now() - data.last_seen < 30000;
 
     return NextResponse.json({
       peerId,
       online: isOnline,
-      lastSeen: onlineStatus
-        ? new Date(onlineStatus as number).toISOString()
-        : null,
+      lastSeen: data ? new Date(data.last_seen).toISOString() : null,
     });
   } catch (error) {
     console.error("Check peer error:", error);

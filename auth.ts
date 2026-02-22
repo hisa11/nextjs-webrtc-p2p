@@ -1,7 +1,7 @@
-import NextAuth from "next-auth"
-import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
-import { kv } from "@vercel/kv"
+import NextAuth from "next-auth";
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -16,21 +16,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account && user) {
         // プロバイダー固有のIDを生成（一貫性のあるID）
         const userId = `${account.provider}-${account.providerAccountId}`;
         user.id = userId;
 
-        // ユーザー情報をKVに保存
-        await kv.hset(`user:${userId}`, {
+        // ユーザー情報を Supabase に upsert
+        await supabaseAdmin.from("users").upsert({
           id: userId,
-          name: user.name || '',
-          email: user.email || '',
-          image: user.image || '',
+          name: user.name || "",
+          email: user.email || "",
+          image: user.image || "",
           provider: account.provider,
-          providerAccountId: account.providerAccountId,
-          lastLogin: Date.now(),
+          provider_account_id: account.providerAccountId,
+          last_login: Date.now(),
         });
       }
       return true;
@@ -50,8 +50,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
+    signIn: "/auth/signin",
+    error: "/auth/error",
   },
-  debug: process.env.NODE_ENV === 'development',
-})
+  debug: process.env.NODE_ENV === "development",
+});

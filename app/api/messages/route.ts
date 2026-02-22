@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { supabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 10;
@@ -15,7 +15,7 @@ type OfflineMessage = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, from, to } = body;
+    const { text, from, to, timestamp } = body;
 
     if (!text || !from || !to) {
       return NextResponse.json(
@@ -24,30 +24,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 相手がオンラインかチェック
-    const onlineStatus = await kv.get(`online:${to}`);
-    const isOnline =
-      onlineStatus && Date.now() - (onlineStatus as number) < 30000;
+    console.log(`[Messages] Storing message for ${to} (always save mode)`);
 
-    if (isOnline) {
-      // オンラインの場合は保存不要
-      return NextResponse.json({ stored: false, reason: "recipient_online" });
-    }
-
-    // オフラインの場合はメッセージを保存
     const message: OfflineMessage = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       text,
       from,
       to,
-      timestamp: Date.now(),
+      timestamp: timestamp || Date.now(),
     };
 
-    const key = `messages:${to}`;
-    await kv.lpush(key, JSON.stringify(message));
+    // Supabase にメッセージを保存
+    await supabaseAdmin.from("messages").insert({
+      id: message.id,
+      text: message.text,
+      from_user_id: message.from,
+      to_user_id: message.to,
+      timestamp: message.timestamp,
+    });
 
-    // 24時間で自動削除（Vercel無料プランの容量節約）
-    await kv.expire(key, 86400);
+    console.log(
+      `[Messages] Message saved with ID:`,
+      message.id,
+      "timestamp:",
+      message.timestamp,
+    );
+
+    // 送信者の名前を取得
+    const { data: fromUserData } = await supabaseAdmin
+      .from("users")
+      .select("name")
+      .eq("id", from)
+      .single();
+    const fromName = fromUserData?.name || from;
+
+    // 通知を保存
+    await supabaseAdmin.from("notifications").insert({
+      to_user_id: to,
+      from_user: fromName,
+      message: text.slice(0, 50),
+      timestamp: timestamp || Date.now(),
+    });
+
+    console.log(`[Messages] Stored offline message for ${to} from ${fromName}`);
 
     return NextResponse.json({ stored: true, messageId: message.id });
   } catch (error) {
@@ -69,31 +88,53 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    const key = `messages:${userId}`;
-    const items = await kv.lrange(key, 0, -1);
+    console.log(`[Messages] Fetching messages for ${userId}`);
 
-    const messages: OfflineMessage[] = [];
+    const { data: rows } = await supabaseAdmin
+      .from("messages")
+      .select("*")
+      .eq("to_user_id", userId)
+      .order("timestamp", { ascending: true });
 
-    if (items && items.length > 0) {
-      for (const item of items) {
-        try {
-          // Vercel KVは自動的にJSONをパース/シリアライズする
-          if (typeof item === 'string') {
-            messages.push(JSON.parse(item));
-          } else {
-            messages.push(item as OfflineMessage);
-          }
-        } catch (e) {
-          console.error("Parse error:", e);
-        }
-      }
-      // 取得したら削除
-      await kv.del(key);
-    }
+    const messages: OfflineMessage[] = (rows || []).map((row) => ({
+      id: row.id,
+      text: row.text,
+      from: row.from_user_id,
+      to: row.to_user_id,
+      timestamp: row.timestamp,
+    }));
+
+    console.log(
+      `[Messages] Retrieved ${messages.length} messages, sorted by timestamp`,
+    );
 
     return NextResponse.json({ messages });
   } catch (error) {
     console.error("Get messages error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+// オフラインメッセージを削除
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
+
+    await supabaseAdmin.from("messages").delete().eq("to_user_id", userId);
+
+    console.log(`[Messages] Deleted all messages for ${userId}`);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete messages error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

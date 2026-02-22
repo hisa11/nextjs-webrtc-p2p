@@ -1,0 +1,2 @@
+This is a placeholder for the notification icon.
+For production, please add a 192x192 PNG icon file here.
