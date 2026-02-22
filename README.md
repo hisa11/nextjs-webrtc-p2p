@@ -20,7 +20,7 @@ STUN（Session Traversal Utilities for NAT）サーバーを使用し、異な�
 
 ### 3. オフラインメッセージ保存
 
-相手がオフライン時、またはP2P接続が確立できない場合には、メッセージをサーバー（Vercel KV）に一時保存します。相手がオンラインになった際に自動的にメッセージが配信され、送信者には配信確認通知が送られます。
+相手がオフライン時、またはP2P接続が確立できない場合には、メッセージをサーバー（Supabase）に一時保存します。相手がオンラインになった際に自動的にメッセージが配信され、送信者には配信確認通知が送られます。
 
 ### 4. Google認証によるセキュアなログイン
 
@@ -81,9 +81,9 @@ QRコードを表示・スキャンして簡単に連絡先を追加できます
 - **フロントエンド**: Next.js 16.1.6（App Router）、React、TypeScript
 - **スタイリング**: Tailwind CSS
 - **認証**: NextAuth.js v5（Google OAuth）
-- **データベース**: Vercel KV（Redis互換）
+- **データベース**: Supabase（PostgreSQL）
 - **WebRTC**: RTCPeerConnection、RTCDataChannel
-- **シグナリング**: カスタム実装（Vercel KV使用）
+- **シグナリング**: カスタム実装（Supabase使用）
 - **デプロイ**: Vercel
 - **ビルドツール**: Turbopack
 
@@ -125,18 +125,19 @@ STUNサーバーを使用することで、異なるネットワーク環境下�
 NextAuth.jsによるGoogle OAuth認証を実装し、安全なログインシステムを構築しました。ユーザーIDの生成方式も改善し、ログアウト後も連絡先が保持されるようになっています。
 
 **オフラインメッセージ配信**
-相手がオフライン時のメッセージをサーバー（Vercel KV）に保存し、オンライン復帰時に自動配信する仕組みを実装しました。配信確認システムにより、送信者は相手がメッセージを受け取ったことを確認できます。
+相手がオフライン時のメッセージをサーバー（Supabase）に保存し、オンライン復帰時に自動配信する仕組みを実装しました。配信確認システムにより、送信者は相手がメッセージを受け取ったことを確認できます。
 
 ### 変更・代替案を採用した部分
 
-**データベース: Supabase → Vercel KV**
-当初はSupabaseの使用を検討していましたが、以下の理由からVercel KVを採用しました：
+**データベース: Vercel KV → Supabase**
+当初はVercel KVを使用していましたが、以下の理由からSupabaseへ移行しました：
 
-- Vercelとの統合が容易で、環境変数の設定が簡潔
-- Redisベースのため、一時的なデータ保存に適している
-- 無料枠での制限が明確で、開発中のコスト管理が容易
+- PostgreSQLベースのリレーショナルDBによる堅牢なデータ管理
+- Row Level Security（RLS）による細かいアクセス制御
+- Vercel KVの無料枠制限を超えるデータ量への対応
+- SQLによる柔軟なクエリと将来的な拡張性
 
-この変更により、Supabaseの停止モード対策（GitHub Actionsによる定期Ping）は不要になりました。Vercel KVは常時稼働しているため、追加の監視機構を実装する必要がありません。
+この変更により、各機能（ユーザー・連絡先・メッセージ・シグナリング・通知）が専用テーブルで管理されるようになりました。
 
 **Push通知の実装状況**
 Service Workerの登録とプッシュ通知の基礎実装は完了していますが、実際の通知配信には以下の課題が残っています：
@@ -146,6 +147,9 @@ Service Workerの登録とプッシュ通知の基礎実装は完了していま
 - 通知トリガーのタイミング調整
 
 現時点では、ブラウザ内通知（Notification API）による通知表示が動作しています。バックグラウンド通知は今後の改善項目として残されています。
+
+**認証: Google のみに統一**
+当初は GitHub と Google の両方の OAuth 認証に対応していましたが、Google 認証のみに統一しました。これによりコードの簡素化と認証フローの一貫性が向上しています。
 
 **シグナリングサーバーの実装**
 専用のWebSocketサーバーではなく、Next.js API Routesとポーリング方式を採用しました：
@@ -223,11 +227,16 @@ npm run dev
 必要な環境変数:
 
 - `NEXTAUTH_URL`: アプリケーションのURL
-- `NEXTAUTH_SECRET`: NextAuth.jsのシークレットキー
-- `GOOGLE_CLIENT_ID`: Google OAuthクライアントID
-- `GOOGLE_CLIENT_SECRET`: Google OAuthクライアントシークレット
-- `KV_URL`: Vercel KVのURL
-- `KV_REST_API_URL`: Vercel KV REST API URL
-- `KV_REST_API_TOKEN`: Vercel KV認証トークン
-- `KV_REST_API_READ_ONLY_TOKEN`: Vercel KV読み取り専用トークン
+- `AUTH_SECRET`: NextAuth.jsのシークレットキー
+- `AUTH_GOOGLE_ID`: Google OAuthクライアントID
+- `AUTH_GOOGLE_SECRET`: Google OAuthクライアントシークレット
+- `NEXT_PUBLIC_SUPABASE_URL`: Supabase プロジェクトURL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase 公開（anon）キー
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase サービスロールキー
+
+### Supabase のセットアップ
+
+1. [Supabase ダッシュボード](https://supabase.com/dashboard) でプロジェクトを作成
+2. **SQL Editor** で `supabase/schema.sql` の内容を実行してテーブルを作成
+3. **Settings → API** でキーを取得し、環境変数に設定
 
