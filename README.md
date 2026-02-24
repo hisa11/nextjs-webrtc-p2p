@@ -1,5 +1,13 @@
 # WebRTC P2P チャットアプリケーション
 
+[![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Vercel](https://img.shields.io/badge/deploy-Vercel-black?logo=vercel&logoColor=white)](https://nextjs-webrtc-p2p.vercel.app)
+[![WebRTC](https://img.shields.io/badge/WebRTC-P2P-orange?logo=webrtc&logoColor=white)](https://webrtc.org/)
+[![Since](https://img.shields.io/badge/since-2026.01-blue)]()
+
 本番環境: https://nextjs-webrtc-p2p.vercel.app
 
 開発期間: 2026.01.15 ~ 2026.02.18 (約80時間)
