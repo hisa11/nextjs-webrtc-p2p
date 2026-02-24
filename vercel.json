@@ -9,6 +9,12 @@
       "maxDuration": 10
     }
   },
+  "crons": [
+    {
+      "path": "/api/ping",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
